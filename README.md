@@ -69,9 +69,9 @@ Paste the script and press Enter
 
 Save script as Set-NTPConfig.ps1
 
-Run it with:
+Run it with powershell:
 
-```powershell
+```
 powershell -ExecutionPolicy Bypass -File "C:\Path\To\Set-NTPConfig.ps1"
 ```
 
@@ -79,8 +79,6 @@ powershell -ExecutionPolicy Bypass -File "C:\Path\To\Set-NTPConfig.ps1"
 After running the script, check time sync with:
 
 ```
-powershell
-
 w32tm /query /status
 ```
 Expected output includes:
