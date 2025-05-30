@@ -1,83 +1,118 @@
-# Set-NTPConfig
-Accurate Time for Windows 11
+# ⚙️ Windows High-Precision NTP Configuration Script
 
-Download and run:
+This PowerShell script configures **secure**, **accurate**, and **frequent** time synchronization on **Windows 10/11** systems using reliable public NTP servers.
 
-powershell -ExecutionPolicy Bypass -File "C:\Path\To\Set-NTPConfig.ps1"
+---
 
+## 🚀 Features
 
-Check configuration:
+- ✅ Sets **trusted stratum 1 NTP servers** (Cloudflare, Google, NIST, Apple)
+- ✅ Polls every **~60 seconds** for high accuracy
+- ✅ Applies recommended `0x9` flags (SpecialInterval + Client)
+- ✅ Forces immediate time sync
+- ✅ Ensures Windows Time service is configured and running
+- ✅ Ideal for environments requiring **tight time precision** (e.g. financial systems, monitoring, logging)
 
+---
+
+## 🔒 Trusted NTP Servers Used
+
+| Server                | Organization    | Notes                           |
+|-----------------------|-----------------|---------------------------------|
+| `time.cloudflare.com` | Cloudflare      | Low-latency, global network     |
+| `time.google.com`     | Google          | Secure, stratum 1               |
+| `time.nist.gov`       | NIST (US Gov)   | Official US atomic time         |
+| `time.apple.com`      | Apple           | Stable and widely distributed   |
+
+All servers are configured with `,0x9` flag:  
+> `0x9 = SpecialInterval (0x1) + Client Mode (0x8)`
+
+---
+
+## 📜 Script Contents
+
+```powershell
+# Set secure, high-precision NTP configuration on Windows
+$ntpServers = "time.cloudflare.com,0x9 time.google.com,0x9 time.nist.gov,0x9 time.apple.com,0x9"
+
+# Configure NTP parameters
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -Name "NtpServer" -Value $ntpServers
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -Name "Type" -Value "NTP"
+
+# Set frequent sync interval (64 seconds)
+$ntpClientPath = "HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\TimeProviders\NtpClient"
+Set-ItemProperty -Path $ntpClientPath -Name "SpecialPollInterval" -Value 64 -Type DWord
+Set-ItemProperty -Path $ntpClientPath -Name "Enabled" -Value 1 -Type DWord
+
+# Ensure Windows Time service is enabled
+Set-Service w32time -StartupType Automatic
+Restart-Service w32time
+
+# Apply changes and force sync
+w32tm /config /update
+Start-Sleep -Seconds 3
+w32tm /resync /nowait
+
+# Output config and status
+w32tm /query /configuration
 w32tm /query /status
 
 
-Example output:
+🧪 Usage
+🖱️ Option 1: Run Directly
+Open PowerShell as Administrator
 
-The command completed successfully.
-Sending resync command to local computer
-The command completed successfully.
+Paste the script and press Enter
 
---- CURRENT TIME CONFIGURATION ---
-[Configuration]
+📁 Option 2: Save and Run as .ps1
+Save script as Set-NTPConfig.ps1
 
-EventLogFlags: 2 (Local)
-AnnounceFlags: 5 (Local)
-TimeJumpAuditOffset: 28800 (Local)
-MinPollInterval: 6 (Local)
-MaxPollInterval: 6 (Local)
-MaxNegPhaseCorrection: 54000 (Local)
-MaxPosPhaseCorrection: 54000 (Local)
-MaxAllowedPhaseOffset: 0 (Local)
+Run it with:
 
-FrequencyCorrectRate: 2 (Local)
-PollAdjustFactor: 5 (Local)
-LargePhaseOffset: 50000000 (Local)
-SpikeWatchPeriod: 900 (Local)
-LocalClockDispersion: 10 (Local)
-HoldPeriod: 5 (Local)
-PhaseCorrectRate: 1 (Local)
-UpdateInterval: 256 (Local)
+powershell
+Copy
+Edit
+powershell -ExecutionPolicy Bypass -File "C:\Path\To\Set-NTPConfig.ps1"
 
+📊 Verify Sync Status
+After running the script, check time sync with:
 
-[TimeProviders]
+powershell
+Copy
+Edit
+w32tm /query /status
+Expected output includes:
 
-NtpClient (Local)
-DllName: C:\WINDOWS\SYSTEM32\w32time.DLL (Local)
-Enabled: 1 (Local)
-InputProvider: 1 (Local)
-AllowNonstandardModeCombinations: 1 (Local)
-ResolvePeerBackoffMinutes: 15 (Local)
-ResolvePeerBackoffMaxTimes: 7 (Local)
-CompatibilityFlags: 2147483648 (Local)
-EventLogFlags: 1 (Local)
-LargeSampleSkew: 3 (Local)
-SpecialPollInterval: 64 (Local)
-Type: NTP (Local)
-NtpServer: time.cloudflare.com,0x9 time.google.com,0x9 time.nist.gov,0x9 time.apple.com,0x9 (Local)
+Source: one of the configured NTP servers
 
-NtpServer (Local)
-DllName: C:\WINDOWS\SYSTEM32\w32time.DLL (Local)
-Enabled: 0 (Local)
-InputProvider: 0 (Local)
+Stratum: 2 (synced from a stratum 1 server)
 
+Last Successful Sync Time: recent timestamp
 
-Leap Indicator: 0(no warning)
-Stratum: 1 (primary reference - syncd by radio clock)
-Precision: -23 (119.209ns per tick)
-Root Delay: 0.0000000s
-Root Dispersion: 10.0000000s
-ReferenceId: 0x4C4F434C (source name:  "LOCL")
-Last Successful Sync Time: 5/30/2025 09:06:45
-Source: Local CMOS Clock
-Poll Interval: 6 (64s)
+Poll Interval: 64 seconds
 
-PS C:\WINDOWS\system32> w32tm /query /status
-Leap Indicator: 0(no warning)
-Stratum: 2 (secondary reference - syncd by (S)NTP)
-Precision: -23 (119.209ns per tick)
-Root Delay: 0.0000000s
-Root Dispersion: 10.0000000s
-ReferenceId: 0x84A36102 (source IP:  132.163.97.2)
-Last Successful Sync Time: 5/30/2025 09:07:01
-Source: time.nist.gov,0x9
-Poll Interval: 6 (64s)
+📁 Optional Commands
+Task	Command
+View current peers	w32tm /query /peers
+Sync test to NTP server	w32tm /stripchart /computer:time.nist.gov /samples:5 /dataonly
+Show config summary	w32tm /query /configuration
+
+🛠️ Requirements
+Windows 10 / 11
+
+Admin privileges
+
+PowerShell 5.0+ (built-in)
+
+📜 License
+MIT License
+
+🙋‍♂️ Support
+Need help with .reg, .bat, .exe, or GPO/Intune deployment?
+Open an issue or PR and we’ll assist you!
+
+yaml
+Copy
+Edit
+
+---
