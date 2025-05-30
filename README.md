@@ -61,15 +61,12 @@ w32tm /query /status
 
 ## 🧪 Usage
 🖱️ Option 1: Run Directly
-
-Open PowerShell as Administrator
-Paste the script and press Enter
+  - ✅ Open PowerShell as Administrator
+  - ✅ Paste the script and press Enter
 
 ## 📁 Option 2: Save and Run as .ps1
-
-Save script as Set-NTPConfig.ps1
-
-Run it with powershell:
+  - ✅ Save script as Set-NTPConfig.ps1
+  - ✅ Run it with powershell:
 
 ```
 powershell -ExecutionPolicy Bypass -File "C:\Path\To\Set-NTPConfig.ps1"
