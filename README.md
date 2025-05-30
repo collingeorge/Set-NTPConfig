@@ -56,31 +56,33 @@ w32tm /resync /nowait
 # Output config and status
 w32tm /query /configuration
 w32tm /query /status
+````
 
 
-🧪 Usage
+## 🧪 Usage
 🖱️ Option 1: Run Directly
-Open PowerShell as Administrator
 
+Open PowerShell as Administrator
 Paste the script and press Enter
 
-📁 Option 2: Save and Run as .ps1
+## 📁 Option 2: Save and Run as .ps1
+
 Save script as Set-NTPConfig.ps1
 
 Run it with:
 
-powershell
-Copy
-Edit
+```powershell
 powershell -ExecutionPolicy Bypass -File "C:\Path\To\Set-NTPConfig.ps1"
+```
 
-📊 Verify Sync Status
+## 📊 Verify Sync Status
 After running the script, check time sync with:
 
+```
 powershell
-Copy
-Edit
+
 w32tm /query /status
+```
 Expected output includes:
 
 Source: one of the configured NTP servers
@@ -91,28 +93,27 @@ Last Successful Sync Time: recent timestamp
 
 Poll Interval: 64 seconds
 
-📁 Optional Commands
-Task	Command
-View current peers	w32tm /query /peers
-Sync test to NTP server	w32tm /stripchart /computer:time.nist.gov /samples:5 /dataonly
-Show config summary	w32tm /query /configuration
 
-🛠️ Requirements
+## 📁 Optional Commands
+| Task                    | Command                                                          |
+| ----------------------- | ---------------------------------------------------------------- |
+| View current peers      | `w32tm /query /peers`                                            |
+| Sync test to NTP server | `w32tm /stripchart /computer:time.nist.gov /samples:5 /dataonly` |
+| Show config summary     | `w32tm /query /configuration`                                    |
+
+
+## 🛠️ Requirements
 Windows 10 / 11
 
 Admin privileges
 
 PowerShell 5.0+ (built-in)
 
-📜 License
+## 📜 License
 MIT License
 
-🙋‍♂️ Support
+## 🙋‍♂️ Support
 Need help with .reg, .bat, .exe, or GPO/Intune deployment?
 Open an issue or PR and we’ll assist you!
 
-yaml
-Copy
-Edit
 
----
