@@ -104,6 +104,10 @@ Admin privileges
 
 PowerShell 5.0+ (built-in)
 
+## 📥 Contribute
+
+Have a trustworthy threat feed to recommend? Submit a pull request or open an issue.
+
 ## 📜 License
 MIT License
 
