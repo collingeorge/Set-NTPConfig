@@ -111,4 +111,4 @@ Need help with .reg, .bat, .exe, or GPO/Intune deployment? Open an issue or PR, 
 
 ## Credits
 
-Created with the assistance of [OpenAI](https://openai.com) and [ChatGPT](https://chat.openai.com), for automation, formatting, and research, published [here](https://chatgpt.com/share/683b7e3e-1214-8000-a615-9a368e150225)
+Created with the assistance of [OpenAI](https://openai.com) and [ChatGPT](https://chat.openai.com), for automation, formatting, and research, published [here](https://chatgpt.com/share/683b750a-6be8-8000-a0e6-676a8a4a65c5)
