@@ -112,16 +112,6 @@ w32tm /resync /nowait
 | Sync test to NTP server | `w32tm /stripchart /computer:time.nist.gov /samples:5 /dataonly` |
 | Show config summary     | `w32tm /query /configuration`                                    |
 
-## Revert to Original Static Servers
-To restore the original Cloudflare/Google/NIST/Apple configuration:
-
-```powershell
-$originalServers = "time.cloudflare.com,0x9 time.google.com,0x9 time.nist.gov,0x9 time.apple.com,0x9"
-Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -Name "NtpServer" -Value $originalServers
-w32tm /config /update
-w32tm /resync /nowait
-```
-
 ## Changelog
 v1.1 (2025-09-21)
 
