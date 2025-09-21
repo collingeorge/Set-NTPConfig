@@ -139,7 +139,7 @@ Basic time synchronization setup
 Windows 11 Enteprise (Build 26100.4946)
 
 ## License
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/collingeorge/Set-NTPConfig/blob/main/LICENSE) file for details.
 
 ## Contribute
 Have a trustworthy NTP pool recommendation or regional variant? Submit a pull request or open an issue.
