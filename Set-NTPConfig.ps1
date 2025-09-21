@@ -1,7 +1,8 @@
 # Requires admin privileges
 
-# 1. Set trusted, accurate NTP servers
-$ntpServers = "time.cloudflare.com,0x9 time.google.com,0x9 time.nist.gov,0x9 time.apple.com,0x9"
+# 1. Set trusted, accurate NTP servers (SWITCHED TO POOLS FOR GEO-OPTIMIZATION)
+# Original: "time.cloudflare.com,0x9 time.google.com,0x9 time.nist.gov,0x9 time.apple.com,0x9"
+$ntpServers = "0.north-america.pool.ntp.org,0x9 1.north-america.pool.ntp.org,0x9 2.north-america.pool.ntp.org,0x9 3.north-america.pool.ntp.org,0x9"
 
 Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -Name "NtpServer" -Value $ntpServers
 Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -Name "Type" -Value "NTP"
