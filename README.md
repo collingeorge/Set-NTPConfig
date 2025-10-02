@@ -19,6 +19,15 @@ PowerShell script that configures secure, accurate, and reliable time synchroniz
 
 ## 🚀 Quick Start
 
+### Option: Powershell Gallery
+
+## Installation
+```powershell
+Install-Module -Name Set-NTPConfig -Scope CurrentUser
+Import-Module Set-NTPConfig
+Set-NTPConfig -Region Auto -Force
+```
+
 ### Option 1: Auto-Configure (Recommended)
 
 Open PowerShell as Administrator and run:
