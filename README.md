@@ -2,6 +2,10 @@
 
 PowerShell script that configures secure, accurate, and reliable time synchronization on Windows 10/11 systems using geo-optimized public NTP server pools.
 
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue.svg)](https://docs.microsoft.com/en-us/powershell/)
+[![Windows](https://img.shields.io/badge/Windows-10%2F11%2FServer-blue.svg)](https://www.microsoft.com/)
+
 ## ✨ Features
 
 - **🌍 Automatic Region Detection** - Detects your timezone and selects optimal NTP pool servers
