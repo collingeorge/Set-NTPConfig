@@ -4,7 +4,8 @@
 
 .DESCRIPTION
     Checks Windows Time service health, last sync time, stratum level, and peer status.
-    Can be used for monitoring, alerting, or scheduled health checks.
+    Can be used for monitoring, alerting, or scheduled health checks. Also detects if
+    the poll interval configuration is not being properly applied.
 
 .PARAMETER MaxHoursSinceSync
     Maximum hours since last successful sync before warning. Default: 2 hours.
@@ -21,6 +22,9 @@
 .PARAMETER JsonPath
     Path for JSON export. Default: .\ntp-health.json
 
+.PARAMETER FixPollInterval
+    If poll interval appears stuck, attempt to fix by re-registering the service.
+
 .EXAMPLE
     .\Test-NTPHealth.ps1
     Basic health check with default thresholds.
@@ -33,9 +37,13 @@
     .\Test-NTPHealth.ps1 -ExportJson -JsonPath "C:\Monitoring\ntp-health.json"
     Export results for monitoring system integration.
 
+.EXAMPLE
+    .\Test-NTPHealth.ps1 -FixPollInterval
+    Check health and fix poll interval if stuck at 64 seconds.
+
 .NOTES
     Author: NTP Health Monitor
-    Version: 1.0
+    Version: 1.1
     Requires: Windows 10/11 or Windows Server 2016+
 #>
 
@@ -56,7 +64,10 @@ param(
     [switch]$ExportJson,
     
     [Parameter(Mandatory=$false)]
-    [string]$JsonPath = ".\ntp-health.json"
+    [string]$JsonPath = ".\ntp-health.json",
+    
+    [Parameter(Mandatory=$false)]
+    [switch]$FixPollInterval
 )
 
 Set-StrictMode -Version Latest
@@ -142,12 +153,17 @@ function Get-TimeStatus {
             }
             elseif ($line -match "Last Successful Sync Time: (.+)") {
                 $syncTimeStr = $matches[1].Trim()
-                try {
-                    $status.LastSyncTime = [DateTime]::Parse($syncTimeStr)
-                    $status.HoursSinceSync = ((Get-Date) - $status.LastSyncTime).TotalHours
+                if ($syncTimeStr -ne 'unspecified') {
+                    try {
+                        $status.LastSyncTime = [DateTime]::Parse($syncTimeStr)
+                        $status.HoursSinceSync = ((Get-Date) - $status.LastSyncTime).TotalHours
+                    }
+                    catch {
+                        $status.LastSyncTimeRaw = $syncTimeStr
+                    }
                 }
-                catch {
-                    $status.LastSyncTimeRaw = $syncTimeStr
+                else {
+                    $status.LastSyncTimeRaw = 'unspecified'
                 }
             }
             elseif ($line -match "Source: (.+)") {
@@ -243,6 +259,83 @@ function Get-NTPConfiguration {
     }
 }
 
+function Test-PollIntervalIssue {
+    param(
+        [int]$CurrentPollInterval,
+        [int]$ConfiguredPollInterval
+    )
+    
+    # Convert configured interval to poll interval value (log2)
+    # SpecialPollInterval of 900s should result in poll interval around 10 (1024s)
+    # Poll interval of 6 = 64s, which is Windows default
+    
+    if ($CurrentPollInterval -le 6 -and $ConfiguredPollInterval -ge 300) {
+        return @{
+            HasIssue = $true
+            Message = "Poll interval appears stuck at 64 seconds despite configured $ConfiguredPollInterval second interval"
+        }
+    }
+    
+    return @{
+        HasIssue = $false
+    }
+}
+
+function Repair-PollInterval {
+    try {
+        Write-Host "`nAttempting to fix poll interval configuration..." -ForegroundColor Yellow
+        
+        # Check if running as admin
+        $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        
+        if (-not $isAdmin) {
+            Write-HealthStatus "Must run as Administrator to fix poll interval" -Status Critical
+            return $false
+        }
+        
+        # Stop service
+        Write-Host "Stopping Windows Time service..." -ForegroundColor Cyan
+        Stop-Service w32time -Force -ErrorAction Stop
+        Start-Sleep -Seconds 2
+        
+        # Unregister
+        Write-Host "Unregistering service..." -ForegroundColor Cyan
+        $unregResult = w32tm /unregister 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Unregister returned: $unregResult" -ForegroundColor Yellow
+        }
+        
+        # Register
+        Write-Host "Re-registering service..." -ForegroundColor Cyan
+        $regResult = w32tm /register 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-HealthStatus "Failed to register service: $regResult" -Status Critical
+            return $false
+        }
+        
+        # Start service
+        Write-Host "Starting service..." -ForegroundColor Cyan
+        Start-Service w32time -ErrorAction Stop
+        Start-Sleep -Seconds 3
+        
+        # Update configuration
+        Write-Host "Updating configuration..." -ForegroundColor Cyan
+        w32tm /config /update | Out-Null
+        Start-Sleep -Seconds 2
+        
+        # Resync
+        Write-Host "Forcing resync..." -ForegroundColor Cyan
+        w32tm /resync /rediscover 2>&1 | Out-Null
+        
+        Write-HealthStatus "Poll interval fix completed. Wait 2-5 minutes for sync to establish." -Status OK
+        return $true
+    }
+    catch {
+        Write-HealthStatus "Failed to fix poll interval: $_" -Status Critical
+        return $false
+    }
+}
+
 # Main execution
 try {
     Write-Host "`n=== NTP Health Check ===" -ForegroundColor Cyan
@@ -278,7 +371,14 @@ try {
     }
     else {
         Write-HealthStatus "Source: $($timeStatus.Source)" -Status Info
-        Write-HealthStatus "Stratum: $($timeStatus.Stratum)" -Status Info
+        
+        if ($timeStatus.Stratum -eq 0 -or $timeStatus.Source -match "Local CMOS") {
+            Write-HealthStatus "Not synchronized - using local clock (Stratum: $($timeStatus.Stratum))" -Status Critical
+            $results.OverallHealth = 'Critical'
+        }
+        else {
+            Write-HealthStatus "Stratum: $($timeStatus.Stratum)" -Status Info
+        }
         
         if ($timeStatus.HoursSinceSync) {
             $hoursSince = [Math]::Round($timeStatus.HoursSinceSync, 2)
@@ -299,10 +399,16 @@ try {
             
             Write-HealthStatus "Last sync time: $($timeStatus.LastSyncTime)" -Status Info
         }
+        elseif ($timeStatus.LastSyncTimeRaw -eq 'unspecified') {
+            Write-HealthStatus "Never synchronized (waiting for initial sync)" -Status Warning
+            if ($results.OverallHealth -eq 'OK') {
+                $results.OverallHealth = 'Warning'
+            }
+        }
         
         if ($timeStatus.PollIntervalSeconds) {
             $pollMinutes = [Math]::Round($timeStatus.PollIntervalSeconds / 60, 1)
-            Write-HealthStatus "Poll interval: $pollMinutes minutes" -Status Info
+            Write-HealthStatus "Current poll interval: $pollMinutes minutes" -Status Info
         }
     }
     
@@ -318,6 +424,23 @@ try {
         if ($config.SpecialPollInterval) {
             $pollMinutes = [Math]::Round($config.SpecialPollInterval / 60, 1)
             Write-HealthStatus "Configured poll interval: $pollMinutes minutes" -Status Info
+            
+            # Check for poll interval configuration issue
+            if ($timeStatus.PollInterval) {
+                $pollTest = Test-PollIntervalIssue -CurrentPollInterval $timeStatus.PollInterval -ConfiguredPollInterval $config.SpecialPollInterval
+                
+                if ($pollTest.HasIssue) {
+                    Write-HealthStatus $pollTest.Message -Status Warning
+                    Write-Host "  Recommendation: Run with -FixPollInterval to resolve this issue" -ForegroundColor Yellow
+                    
+                    if ($FixPollInterval) {
+                        $fixed = Repair-PollInterval
+                        if ($fixed) {
+                            $results.Checks.PollIntervalFixed = $true
+                        }
+                    }
+                }
+            }
         }
     }
     else {
@@ -339,7 +462,9 @@ try {
             foreach ($peer in $peerStatus.Peers) {
                 Write-Host "`n  Peer: $($peer.Name)" -ForegroundColor Gray
                 Write-Host "    State: $($peer.State)" -ForegroundColor Gray
-                Write-Host "    Stratum: $($peer.Stratum)" -ForegroundColor Gray
+                if ($peer.Stratum) {
+                    Write-Host "    Stratum: $($peer.Stratum)" -ForegroundColor Gray
+                }
                 if ($peer.LastSync) {
                     Write-Host "    Last Sync: $($peer.LastSync)" -ForegroundColor Gray
                 }
