@@ -42,7 +42,7 @@
 .NOTES
     Requires Administrator privileges.
     Author: Enhanced for security and reliability
-    Version: 2.0
+    Version: 2.1
 #>
 
 [CmdletBinding(SupportsShouldProcess=$true)]
@@ -300,7 +300,7 @@ try {
         Write-Log "Set w32time service to Automatic startup" -Level Success
     }
     
-    # 5. Restart Service
+    # 5. Restart Service with Full Re-registration
     Write-Log "Restarting Windows Time service..." -Level Info
     
     if ($service.Status -eq 'Running') {
@@ -311,6 +311,19 @@ try {
         }
         Write-Log "Service stopped successfully" -Level Success
     }
+    
+    # Unregister and re-register to ensure configuration is fully reloaded
+    Write-Log "Re-registering Windows Time service to apply configuration..." -Level Info
+    $unregResult = w32tm /unregister 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "Unregister warning (may be expected): $unregResult" -Level Warning
+    }
+    
+    $regResult = w32tm /register 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to register Windows Time service: $regResult"
+    }
+    Write-Log "Service re-registered successfully" -Level Success
     
     Start-Service -Name w32time -ErrorAction Stop
     
