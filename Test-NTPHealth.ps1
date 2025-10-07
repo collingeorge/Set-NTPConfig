@@ -42,9 +42,9 @@
     Check health and fix poll interval if stuck at 64 seconds.
 
 .NOTES
-    Author: NTP Health Monitor
     Version: 1.1
     Requires: Windows 10/11 or Windows Server 2016+
+    Changes in v1.1: Added poll interval detection and automatic fix capability
 #>
 
 [CmdletBinding()]
@@ -131,7 +131,6 @@ function Get-TimeStatus {
             IsHealthy = $true
         }
         
-        # Parse output
         foreach ($line in $statusOutput) {
             if ($line -match "Leap Indicator: (.+)") {
                 $status.LeapIndicator = $matches[1].Trim()
@@ -265,14 +264,13 @@ function Test-PollIntervalIssue {
         [int]$ConfiguredPollInterval
     )
     
-    # Convert configured interval to poll interval value (log2)
+    # Poll interval of 6 = 64s (Windows default)
     # SpecialPollInterval of 900s should result in poll interval around 10 (1024s)
-    # Poll interval of 6 = 64s, which is Windows default
     
     if ($CurrentPollInterval -le 6 -and $ConfiguredPollInterval -ge 300) {
         return @{
             HasIssue = $true
-            Message = "Poll interval appears stuck at 64 seconds despite configured $ConfiguredPollInterval second interval"
+            Message = "Poll interval stuck at 64 seconds despite configured $ConfiguredPollInterval second interval"
         }
     }
     
@@ -293,19 +291,16 @@ function Repair-PollInterval {
             return $false
         }
         
-        # Stop service
         Write-Host "Stopping Windows Time service..." -ForegroundColor Cyan
         Stop-Service w32time -Force -ErrorAction Stop
         Start-Sleep -Seconds 2
         
-        # Unregister
         Write-Host "Unregistering service..." -ForegroundColor Cyan
         $unregResult = w32tm /unregister 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "Unregister returned: $unregResult" -ForegroundColor Yellow
+            Write-Host "Unregister returned code: $LASTEXITCODE (may be normal)" -ForegroundColor Yellow
         }
         
-        # Register
         Write-Host "Re-registering service..." -ForegroundColor Cyan
         $regResult = w32tm /register 2>&1
         if ($LASTEXITCODE -ne 0) {
@@ -313,17 +308,14 @@ function Repair-PollInterval {
             return $false
         }
         
-        # Start service
         Write-Host "Starting service..." -ForegroundColor Cyan
         Start-Service w32time -ErrorAction Stop
         Start-Sleep -Seconds 3
         
-        # Update configuration
         Write-Host "Updating configuration..." -ForegroundColor Cyan
         w32tm /config /update | Out-Null
         Start-Sleep -Seconds 2
         
-        # Resync
         Write-Host "Forcing resync..." -ForegroundColor Cyan
         w32tm /resync /rediscover 2>&1 | Out-Null
         
